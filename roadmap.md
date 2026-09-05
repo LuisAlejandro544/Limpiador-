@@ -38,8 +38,12 @@ Este documento traza la evolución técnica del proyecto, desde las bases actual
   - Detección y limpieza de archivos `.dump`, `.log`, `.trace` y archivos temporales en `/data/local/tmp`.
 - [x] **Recorte de caché de compilación ART (`trim_art_cache.sh`)**:
   - Optimización de cachés sin alterar propiedades del sistema `persist.sys.*`.
+- [x] **Cazador de Bases de Datos SQLite Huérfanas y Fragmentos Corruptos**:
+  - Auditoría de archivos `.db`, `.sqlite`, y fragmentos transaccionales zombis `.db-wal`, `.db-shm`, `.db-journal` sin archivo principal.
+- [x] **Interfaz Dedicada 100% Independiente para «Otros» (`OtherStorageScreen`)**:
+  - Pantalla con AppBar propia, `BackHandler` integrado, filtros por categoría y riesgo, métricas en tiempo real y selector masivo.
 - [x] **Pipeline CI/CD en GitHub Actions (`build-debug-apk.yml`)**:
-  - Flujo automatizado de compilación de APK Debug sin caché, con auto-generación de keystore de firma en el runner y subida de artefactos lista para instalar en el móvil.
+  - Solución del error de keystore generando y ubicando `debug.keystore` en la raíz esperada por Gradle y en `~/.android`.
 
 ---
 

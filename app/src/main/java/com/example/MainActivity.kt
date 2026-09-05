@@ -6,9 +6,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.Crossfade
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.example.shizuku.ShizukuHelper
+import com.example.ui.AppScreen
 import com.example.ui.CleanScreen
 import com.example.ui.CleanViewModel
+import com.example.ui.OtherStorageScreen
 import com.example.ui.theme.MyApplicationTheme
 import rikka.shizuku.Shizuku
 
@@ -45,7 +50,19 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyApplicationTheme {
-                CleanScreen(viewModel = viewModel)
+                val currentScreen by viewModel.currentScreen.collectAsState()
+                Crossfade(targetState = currentScreen, label = "screen_transition") { screen ->
+                    when (screen) {
+                        AppScreen.DASHBOARD -> CleanScreen(
+                            viewModel = viewModel,
+                            onNavigateToOtherStorage = { viewModel.navigateToOtherStorage() }
+                        )
+                        AppScreen.OTHER_STORAGE -> OtherStorageScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateToDashboard() }
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,0 +1,9 @@
+feat: Interfaz independiente de Otros, caza de SQLite huérfanos y corrección de firma CI
+
+- Creación de OtherStorageScreen: interfaz dedicada 100% independiente para la auditoría de «Otros» con TopAppBar, BackHandler para botón atrás, filtros por nivel de seguridad y categoría, y barra fija de limpieza.
+- Transición fluida con Crossfade desde el Dashboard principal hacia la auditoría de «Otros».
+- Expansión de scan_other_storage.sh y clean_orphaned_packages.sh para detectar bases de datos SQLite abandonadas y fragmentos transaccionales zombis (.db-wal, .db-shm, .db-journal) de aplicaciones desinstaladas.
+- Soporte nativo de respaldo en OtherStorageScanner para rastreo de fragmentos SQLite huérfanos.
+- Corrección en el workflow CI para generar debug.keystore en la ruta raíz requerida por Gradle (:app:validateSigningDebug).
+- Configuración de compilación manual exclusiva (workflow_dispatch) para el generador de APK Debug.
+- Adición de workflow automatizado para estandarización de mensajes de commit mediante commit_message.txt.

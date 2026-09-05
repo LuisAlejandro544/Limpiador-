@@ -29,7 +29,23 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+enum class AppScreen {
+    DASHBOARD,
+    OTHER_STORAGE
+}
+
 class CleanViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val _currentScreen = MutableStateFlow(AppScreen.DASHBOARD)
+    val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
+
+    fun navigateToOtherStorage() {
+        _currentScreen.value = AppScreen.OTHER_STORAGE
+    }
+
+    fun navigateToDashboard() {
+        _currentScreen.value = AppScreen.DASHBOARD
+    }
 
     private val _storageStats = MutableStateFlow(StorageStats())
     val storageStats: StateFlow<StorageStats> = _storageStats.asStateFlow()

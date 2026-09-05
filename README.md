@@ -15,16 +15,20 @@ Esta aplicación proporciona una interfaz técnica de alta precisión para escan
 ## 🚀 Características Principales
 
 1. **Suite de Scripts Shell Autónomos (`assets/scripts/`)**:
-   - `scan_other_storage.sh`: Detección profunda de miniaturas ocultas (`.thumbnails`), cachés multimedia, temporales y APKs en desuso.
-   - `clean_orphaned_packages.sh`: Comparador inteligente que audita `/sdcard/Android/data` y `/sdcard/Android/obb` contra los paquetes instalados (`pm list packages`) para identificar carpetas de juegos y aplicaciones desinstaladas que siguen ocupando gigabytes.
+   - `scan_other_storage.sh`: Detección profunda de miniaturas ocultas (`.thumbnails`), cachés multimedia, temporales, APKs en desuso y **bases de datos huérfanas/fragmentos SQLite rotos** (`.db-wal`, `.db-shm`, `.db-journal`) abandonados por aplicaciones desinstaladas.
+   - `clean_orphaned_packages.sh`: Comparador inteligente que audita `/sdcard/Android/data` y `/sdcard/Android/obb` contra los paquetes instalados (`pm list packages`) para identificar carpetas y bases de datos residuales de juegos y aplicaciones desinstaladas que siguen ocupando gigabytes.
    - `purge_system_logs_and_dumps.sh`: Detección y purga segura de volcados `.dump`, `.log`, `.trace`, *tombstones* y archivos residuales de depuración en `/data/local/tmp`.
    - `trim_art_cache.sh`: Invocación del mecanismo oficial del sistema `pm trim-caches 999999999999999` y limpieza de temporales de compilación DEX sin alterar propiedades protegidas del sistema.
    - Clasificación estricta por niveles de seguridad:
-     - 🟢 **SEGURO (SAFE)**: Miniaturas, temporales `.tmp`, cachés de descarga y logs. Borrado garantizado sin efectos negativos.
+     - 🟢 **SEGURO (SAFE)**: Miniaturas, temporales `.tmp`, cachés de descarga, bases de datos residuales de apps desinstaladas, fragmentos WAL/SHM huérfanos y logs. Borrado garantizado sin efectos secundarios.
      - 🟡 **PRECAUCIÓN (CAUTION)**: Carpetas de apps ya desinstaladas, descargas antiguas de más de 30 días, backups locales. Requiere confirmación del usuario.
-     - 🔴 **VITAL (KEEP)**: Archivos `.obb`, bases de datos SQLite (`.db`), copias de seguridad de cifrado y directorios raíz críticos. Están protegidos contra borrado involuntario.
+     - 🔴 **VITAL (KEEP)**: Archivos `.obb` de juegos instalados, bases de datos SQLite en uso activo, copias de seguridad de cifrado y directorios raíz críticos. Están protegidos contra borrado involuntario.
 
-2. **Integración con Shizuku (IPackageManager & ADB Shell)**:
+2. **Interfaz 100% Independiente para «Otros» (`OtherStorageScreen`)**:
+   - Pantalla dedicada con barra de navegación superior, soporte para botón físico de volver (`BackHandler`), métricas de espacio liberable en tiempo real, filtros dinámicos por nivel de seguridad (*Seguros*, *Precaución*, *Vital*) y por categoría (*Bases de Datos Huérfanas*, *Miniaturas*, *Cachés*).
+   - Acciones de selección rápida con un toque ("Marcar solo seguros", "Desmarcar todos") y botón flotante de limpieza con diálogo de confirmación de seguridad.
+
+3. **Integración con Shizuku (IPackageManager & ADB Shell)**:
    - Conexión dinámica por IPC con el servicio Shizuku (`moe.shizuku.manager`).
    - Concesión automática de permisos especiales de almacenamiento en Android 11+ (`MANAGE_EXTERNAL_STORAGE` / `READ_MEDIA_*`) mediante `grantRuntimePermission`.
    - Ejecución de comandos de recorte de caché global a nivel de sistema (`pm trim-caches 999999999999999`).
@@ -76,10 +80,11 @@ app/src/main/
 │   ├── shizuku/
 │   │   └── ShizukuHelper.kt             # Binder IPC con Shizuku, IPackageManager y ejecución ADB
 │   └── ui/
-│       ├── CleanScreen.kt               # Pantalla principal en Jetpack Compose
+│       ├── CleanScreen.kt               # Pantalla principal (Dashboard) en Jetpack Compose
+│       ├── OtherStorageScreen.kt        # Interfaz independiente para análisis profundo de «Otros»
 │       ├── CleanViewModel.kt            # Lógica de estado reactiva (StateFlow)
 │       ├── components/                  # Componentes M3 reutilizables
-│       │   ├── OtherStorageSection.kt   # Tarjeta y lista interactiva de «Otros»
+│       │   ├── OtherStorageSection.kt   # Subcomponentes de visualización de «Otros»
 │       │   ├── ShizukuStatusCard.kt     # Diagnóstico y acciones de Shizuku
 │       │   ├── StorageCircularGauge.kt  # Gráfico radial de disco
 │       │   └── CleaningDialogs.kt       # Diálogos de progreso y resumen

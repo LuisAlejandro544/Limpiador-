@@ -52,10 +52,11 @@ La aplicación sigue el patrón **Model-View-ViewModel (MVVM)** con **Flujo Unid
 │       │   │   ├── shizuku/
 │       │   │   │   └── ShizukuHelper.kt  # Llamadas IPC con Shizuku, IPackageManager y ejecución ADB
 │       │   │   └── ui/
-│       │   │       ├── CleanViewModel.kt # StateFlows de progreso, selección y limpieza
-│       │   │       ├── CleanScreen.kt    # Composable contenedor principal de la vista
+│       │   │       ├── CleanViewModel.kt # StateFlows de progreso, selección, navegación y limpieza
+│       │   │       ├── CleanScreen.kt    # Composable Dashboard principal
+│       │   │       ├── OtherStorageScreen.kt # Pantalla 100% independiente para auditoría de «Otros»
 │       │   │       ├── components/
-│       │   │       │   ├── OtherStorageSection.kt  # UI interactiva para filtrar y limpiar «Otros»
+│       │   │       │   ├── OtherStorageSection.kt  # Subcomponentes para visualización de ítems
 │       │   │       │   ├── ShizukuStatusCard.kt    # Tarjeta de diagnóstico de permisos ADB/Root
 │       │   │       │   ├── StorageCircularGauge.kt # Medidor circular de almacenamiento
 │       │   │       │   ├── JunkCategoryItem.kt     # Item expandible por categoría de basura

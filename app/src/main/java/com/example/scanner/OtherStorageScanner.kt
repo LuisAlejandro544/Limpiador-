@@ -179,6 +179,30 @@ object OtherStorageScanner {
             }
         }
 
+        // 3b. Bases de datos huérfanas y fragmentos SQLite rotos (.db-wal, .db-shm, .db-journal sin base principal)
+        val dbFragmentExtensions = setOf("db-wal", "db-shm", "db-journal")
+        scanDirForExtensions(externalStorage, dbFragmentExtensions, maxDepth = 4) { fragmentFile ->
+            val baseDbName = fragmentFile.name.substringBeforeLast(".")
+            val parent = fragmentFile.parentFile
+            val mainDbFile = File(parent, baseDbName)
+            val mainDbWithExt = File(parent, "$baseDbName.db")
+            if (!mainDbFile.exists() && !mainDbWithExt.exists()) {
+                val size = fragmentFile.length()
+                if (size > 0) {
+                    onItemFound(
+                        OtherStorageItem(
+                            path = fragmentFile.absolutePath,
+                            name = fragmentFile.name,
+                            sizeBytes = size,
+                            category = "Bases de Datos Huérfanas",
+                            safety = SafetyLevel.SAFE,
+                            description = "Fragmento de transacción SQLite huérfano (${fragmentFile.extension}) sin base de datos principal."
+                        )
+                    )
+                }
+            }
+        }
+
         // 4. Copias de seguridad antiguas de mensajería (PRECAUCIÓN)
         val mediaDir = File(externalStorage, "Android/media")
         if (mediaDir.exists()) {

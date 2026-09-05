@@ -1,6 +1,8 @@
 package com.example.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +25,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,22 +60,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.formatStorageSize
 import com.example.ui.components.CleanSummaryDialog
 import com.example.ui.components.CleaningProgressDialog
 import com.example.ui.components.JunkCategoryItem
-import com.example.ui.components.OtherStorageSection
 import com.example.ui.components.ScanningProgressDialog
 import com.example.ui.components.ShizukuStatusCard
 import com.example.ui.components.StorageCircularGauge
 import com.example.ui.components.StoragePermissionBanner
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.theme.ShizukuViolet
 import com.example.ui.theme.TechDarkBackground
 import com.example.ui.theme.TechDarkCardBorder
 import com.example.ui.theme.TechDarkSurface
+import com.example.ui.theme.TechDarkSurfaceVariant
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -78,6 +86,7 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun CleanScreen(
     viewModel: CleanViewModel,
+    onNavigateToOtherStorage: () -> Unit = { viewModel.navigateToOtherStorage() },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -263,20 +272,83 @@ fun CleanScreen(
                 }
             }
 
-            // Apartado de Análisis Profundo de "Otros" (Scripts Shell + Shizuku)
+            // Tarjeta Hero: Acceso a la Herramienta Independiente de "Otros"
             item {
-                OtherStorageSection(
-                    items = otherItems,
-                    isScanning = isScanningOther,
-                    statusMessage = otherStatusMessage,
-                    totalSafeBytes = totalOtherSafeBytes,
-                    totalSelectedBytes = totalOtherSelectedBytes,
-                    onStartScan = { viewModel.startOtherStorageScan(context) },
-                    onToggleItem = { viewModel.toggleOtherItemSelection(it) },
-                    onSelectAllSafe = { viewModel.selectAllSafeOtherItems() },
-                    onDeselectAll = { viewModel.deselectAllOtherItems() },
-                    onCleanSelected = { viewModel.cleanSelectedOtherItems(context) }
-                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToOtherStorage() }
+                        .testTag("open_other_storage_card"),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = TechDarkSurface),
+                    border = BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.45f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ShizukuViolet.copy(alpha = 0.22f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = null,
+                                tint = ShizukuViolet,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Auditoría de «Otros»",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                if (otherItems.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = EmeraldSuccess.copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = formatStorageSize(totalOtherSafeBytes),
+                                            color = EmeraldSuccess,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (otherItems.isEmpty())
+                                    "Bases de datos huérfanas, miniaturas y cachés ocultas"
+                                else
+                                    "${otherItems.size} elementos analizados. Toca para abrir herramienta.",
+                                fontSize = 12.sp,
+                                color = TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Abrir herramienta de Otros",
+                            tint = CyanPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
             }
 
             // Category list header with rescan button

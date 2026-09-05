@@ -1,10 +1,6 @@
 name: Build Debug APK
 
 on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -29,17 +25,25 @@ jobs:
 
       - name: Generar firma Debug (debug.keystore)
         run: |
-          echo "Generando clave y certificado de firma de depuración..."
+          echo "Verificando y preparando debug.keystore en la raíz..."
+          if [ -f "debug.keystore.base64" ]; then
+            echo "Decodificando debug.keystore.base64 a debug.keystore..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+          if [ ! -f "debug.keystore" ]; then
+            echo "Generando nuevo debug.keystore en la raíz del proyecto..."
+            keytool -genkey -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
           mkdir -p ~/.android
-          keytool -genkey -v \
-            -keystore ~/.android/debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          cp debug.keystore ~/.android/debug.keystore 2>/dev/null || true
 
       - name: Preparar Gradle Wrapper
         run: |

@@ -30,7 +30,7 @@ En los ajustes de almacenamiento de Android (MIUI, One UI, ColorOS, Pixel OS, et
 
 1. **Miniaturas de Galería (`.thumbnails`)**: Cada imagen o video genera miniaturas en `/sdcard/DCIM/.thumbnails/`. Con el tiempo, este directorio puede contener cientos de miles de miniaturas huérfanas de fotos ya borradas, alcanzando entre 3 GB y 10 GB.
 2. **Cachés de Apps de Mensajería**: Clientes como Telegram y WhatsApp guardan audios, stickers cacheados y fragmentos multimedia en sus propios directorios (`Telegram/Telegram Documents`, `Android/media/com.whatsapp/`).
-3. **Residuos de Aplicaciones Desinstaladas**: Cuando el usuario desinstala un juego o app pesada, las carpetas con datos adicionales en `/sdcard/Android/data/` o `/sdcard/Android/obb/` muchas veces no son purgadas por el sistema.
+3. **Residuos de Aplicaciones Desinstaladas y Bases de Datos Huérfanas**: Cuando el usuario desinstala un juego o app pesada, las carpetas con datos adicionales en `/sdcard/Android/data/` o `/sdcard/Android/obb/` muchas veces no son purgadas por el sistema. Además, quedan **bases de datos SQLite huérfanas** (`.db`, `.sqlite`) y **fragmentos de transacciones corruptos o zombis** (`.db-wal`, `.db-shm`, `.db-journal`) que ocupan almacenamiento persistentemente.
 4. **Archivos Temporales y Descargas Huérfanas**: Archivos `.tmp`, `.apk` viejos en la carpeta de descargas, logs del sistema (`.log`, `.dump`, `tombstones`).
 
 ---
@@ -42,17 +42,23 @@ En los ajustes de almacenamiento de Android (MIUI, One UI, ColorOS, Pixel OS, et
   - Se extrae al directorio de caché interno de la app al momento del escaneo.
   - Se ejecuta mediante `ShizukuHelper.executeAdbCommand("sh ...")` si Shizuku está disponible, o mediante el runtime de Java como fallback.
   - Emite líneas estructuradas: `ITEM|<tamano_bytes>|<ruta_absoluta>|<categoria>|<nivel_seguridad>|<descripcion>`.
+  - Detección especializada de **Bases de Datos Huérfanas**: Compara paquetes instalados (`pm list packages`) con carpetas en `Android/data/` y localiza bases de datos SQLite abandonadas, además de rastrear fragmentos de transacciones WAL/SHM que quedaron huérfanos sin su base de datos principal.
   - Niveles de seguridad asignados:
-    - `SAFE`: Eliminar sin riesgo alguno (miniaturas, `.tmp`, `.log`, cachés de descarga).
-    - `CAUTION`: Analizar antes de borrar (carpetas de apps desinstaladas, descargas antiguas).
-    - `KEEP`: Archivos protegidos que no deben borrarse jamás (`.obb`, bases de datos SQLite `.db`).
+    - `SAFE`: Eliminar sin riesgo alguno (miniaturas, `.tmp`, `.log`, cachés de descarga, bases de datos residuales de apps desinstaladas, fragmentos WAL/SHM huérfanos).
+    - `CAUTION`: Analizar antes de borrar (carpetas completas sin clasificar, descargas antiguas).
+    - `KEEP`: Archivos protegidos que no deben borrarse jamás (`.obb` de apps activas, bases de datos SQLite en uso activo).
 - **`clean_orphaned_packages.sh`**:
   - Obtiene la lista activa de paquetes (`pm list packages`) y rastrea `/sdcard/Android/data` y `/sdcard/Android/obb`.
-  - Reporta y/o purga carpetas residuales de aplicaciones desinstaladas que Android no eliminó.
+  - Reporta y/o purga carpetas residuales y bases de datos SQLite asociadas a aplicaciones desinstaladas que Android no eliminó.
 - **`purge_system_logs_and_dumps.sh`**:
   - Limpia archivos de depuración en `/data/local/tmp`, volcados de caída (*tombstones*, *dropbox*) y registros `.log`/`.dmp`.
 - **`trim_art_cache.sh`**:
   - Lanza `pm trim-caches 999999999999999` para que el framework libere espacio de caché sin tocar propiedades `persist.sys.*`.
+
+### 2. Navegación e Interfaces Especializadas
+- **`CleanScreen.kt` (Dashboard Principal)**: Resumen general del almacenamiento en tiempo real, estado de Shizuku y tarjeta de acceso prioritario a la herramienta de «Otros».
+- **`OtherStorageScreen.kt` (Interfaz 100% Independiente)**: Pantalla dedicada con barra de navegación superior, soporte nativo de retroceso (`BackHandler`), métricas de espacio liberable, chips de filtrado por nivel de riesgo y categoría, listado pormenorizado y botón de borrado masivo con confirmación.
+- **Transición Fluida**: Transición gestionada por `CleanViewModel.currentScreen` y `Crossfade` en `MainActivity.kt`, garantizando que el estado del escaneo se mantenga intacto al regresar al Dashboard.
 
 ### 2. Capa de Integración Shizuku (`ShizukuHelper.kt`)
 - Utiliza la API oficial de Shizuku para comunicarse con el proceso privilegiado (UID 2000 / UID 0).

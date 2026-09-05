@@ -57,11 +57,14 @@ check_and_process_folder() {
                 TOTAL_ORPHAN_BYTES=$((TOTAL_ORPHAN_BYTES + dir_size))
                 ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
 
+                # Contar bases de datos residuales en la carpeta huérfana
+                db_count=$(find "$pkg_folder" -maxdepth 3 \( -name "*.db" -o -name "*.sqlite" -o -name "*.db-wal" \) 2>/dev/null | wc -l)
+
                 if [ "$ACTION" = "--delete" ]; then
                     rm -rf "$pkg_folder" 2>/dev/null
-                    echo "ORPHAN|${dir_size}|${pkg_folder}|${pkg_name}|DELETED"
+                    echo "ORPHAN|${dir_size}|${pkg_folder}|${pkg_name}|DELETED|DBS:${db_count}"
                 else
-                    echo "ORPHAN|${dir_size}|${pkg_folder}|${pkg_name}|DETECTED"
+                    echo "ORPHAN|${dir_size}|${pkg_folder}|${pkg_name}|DETECTED|DBS:${db_count}"
                 fi
             fi
         fi

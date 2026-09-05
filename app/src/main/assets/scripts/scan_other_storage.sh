@@ -7,6 +7,12 @@
 # ==============================================================================
 
 STORAGE_BASE="${EXTERNAL_STORAGE:-/sdcard}"
+INSTALLED_PKGS_TEMP="/data/local/tmp/scan_pkgs.tmp"
+
+# Obtener lista de paquetes instalados si pm está disponible
+if command -v pm >/dev/null 2>&1; then
+    pm list packages 2>/dev/null | sed 's/package://' | sort -u > "$INSTALLED_PKGS_TEMP" 2>/dev/null
+fi
 
 get_size_bytes() {
     file_path="$1"
@@ -120,5 +126,45 @@ if [ -d "$OBB_DIR" ]; then
         fi
     done
 fi
+
+# 8. Bases de datos huérfanas y fragmentos SQLite rotos (.db, .sqlite, .db-wal, .db-shm, .db-journal) (100% SEGURO)
+# Detección de fragmentos transaccionales sin archivo principal o bases de datos de aplicaciones desinstaladas
+find "$STORAGE_BASE/Android/data" "$STORAGE_BASE" -maxdepth 4 \( -name "*.db-wal" -o -name "*.db-shm" -o -name "*.db-journal" \) 2>/dev/null | while read -r fragment_file; do
+    if [ -f "$fragment_file" ]; then
+        f_size=$(get_size_bytes "$fragment_file")
+        base_db="${fragment_file%.*}"
+        base_name=$(basename "$fragment_file")
+        # Si el archivo principal .db no existe, es un fragmento zombi huérfano
+        if [ ! -f "$base_db" ] && [ ! -f "${base_db}.db" ]; then
+            if [ "$f_size" -gt 0 ]; then
+                echo "ITEM|${f_size}|${fragment_file}|Bases de Datos Huérfanas|SAFE|Fragmento transaccional SQLite huérfano sin archivo principal ($base_name)"
+            fi
+        fi
+    fi
+done
+
+# Detección de bases de datos .db/.sqlite en carpetas de apps desinstaladas en Android/data
+if [ -f "$INSTALLED_PKGS_TEMP" ] && [ -d "$STORAGE_BASE/Android/data" ]; then
+    for pkg_dir in "$STORAGE_BASE/Android/data"/*; do
+        if [ -d "$pkg_dir" ]; then
+            pkg_name=$(basename "$pkg_dir")
+            # Si el paquete NO está instalado en el sistema, cualquier base de datos es basura residual
+            if ! grep -Fxq "$pkg_name" "$INSTALLED_PKGS_TEMP" 2>/dev/null; then
+                find "$pkg_dir" -maxdepth 4 \( -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" \) 2>/dev/null | while read -r orphan_db; do
+                    if [ -f "$orphan_db" ]; then
+                        o_size=$(get_size_bytes "$orphan_db")
+                        if [ "$o_size" -gt 0 ]; then
+                            o_base=$(basename "$orphan_db")
+                            echo "ITEM|${o_size}|${orphan_db}|Bases de Datos Huérfanas|SAFE|Base de datos SQLite residual de la app desinstalada ${pkg_name} ($o_base)"
+                        fi
+                    fi
+                done
+            fi
+        fi
+    done
+fi
+
+# Limpieza de temporales del script
+rm -f "$INSTALLED_PKGS_TEMP" 2>/dev/null
 
 echo "DONE|ANALYSIS_COMPLETE"
