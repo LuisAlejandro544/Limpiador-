@@ -1,0 +1,6 @@
+{
+  "name": "Limpieza Profunda",
+  "description": "App de limpieza profunda de almacenamiento para Android con soporte para Shizuku y escaneo de caché, residuos y temporales.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

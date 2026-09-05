@@ -1,0 +1,61 @@
+name: Build Debug APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compilar APK Debug
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código fuente del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17 (Sin caché)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          # Caché desactivada expresamente
+          cache: ''
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generar firma Debug (debug.keystore)
+        run: |
+          echo "Generando clave y certificado de firma de depuración..."
+          mkdir -p ~/.android
+          keytool -genkey -v \
+            -keystore ~/.android/debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Preparar Gradle Wrapper
+        run: |
+          if [ ! -f "gradlew" ]; then
+            echo "Inicializando wrapper de Gradle..."
+            gradle wrapper
+          fi
+          chmod +x gradlew
+
+      - name: Compilar APK Debug (Sin caché)
+        run: |
+          ./gradlew :app:assembleDebug --no-daemon --no-build-cache --stacktrace
+
+      - name: Subir APK Debug generado como Artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
