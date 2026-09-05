@@ -47,13 +47,16 @@ Este documento traza la evolución técnica del proyecto, desde las bases actual
   - `setup_debug_tools.sh`: Inyección y validación anticipada de dependencias de depuración en el runner.
   - `override-commit-message.yml`: Estandarización automatizada del mensaje de commit leyendo `commit_message.txt`.
 - [x] **Herramientas de Depuración Embebidas para el Móvil**:
-  - **LeakCanary 2.14**: Monitoreo de memoria en segundo plano que instala su propia app "Leaks" en el cajón de aplicaciones.
-  - **Visor de Logcat en Vivo y Consola Shell (`DebugConsoleScreen`)**: Panel accesible desde el TopAppBar con streaming de logs por nivel (V, D, I, W, E), comandos rápidos ADB y terminal interactiva con Shizuku.
+  - **LeakCanary 2.14**: Monitoreo de memoria en segundo plano con app independiente "Leaks", inicializado en `CleanerApp`, permiso de notificación en Android 13+ y panel de volcado manual.
+  - **Visor de Logcat en Vivo y Consola Shell (`DebugConsoleScreen`)**: Panel accesible desde el TopAppBar con streaming de logs por nivel (V, D, I, W, E), comandos rápidos ADB, terminal interactiva con Shizuku y pestaña de diagnóstico de LeakCanary.
 
 ---
 
 ## 📌 Fase 4: Limpieza Quirúrgica y Experiencia Móvil (En Progreso 🔄)
 
+- [x] **Limpiador Quirúrgico de Memoria RAM & Fugas (`trim_ram_and_leaks.sh`)**:
+  - Script shell que invoca `am trim-memory <paquete> COMPLETE` y `am kill-all` para liberar memoria en segundo plano sin reiniciar el dispositivo.
+  - Pantalla exclusiva `RamCleanScreen.kt` con medidor circular interactivo, categorización por tipo de proceso (Caché, Vacíos, Servicios, Sistema) y optimización en un toque.
 - [ ] **Limpieza específica de apps de mensajería**:
   - Script dedicado para detectar audios de voz antiguos, stickers y archivos temporales duplicados de WhatsApp y Telegram sin tocar fotos ni chats.
 - [ ] **Historial de limpieza local**:

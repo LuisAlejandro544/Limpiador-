@@ -38,15 +38,20 @@ En los ajustes de almacenamiento de Android (MIUI, One UI, ColorOS, Pixel OS, et
 ## ⚙️ Arquitectura Técnica
 
 ### 1. Suite de Scripts Shell Autónomos (`app/src/main/assets/scripts/`)
+- **`trim_ram_and_leaks.sh`**:
+  - Script shell para optimización profunda y quirúrgica de la memoria RAM del teléfono sin reinicios.
+  - Ejecuta `am trim-memory <paquete> COMPLETE` sobre los paquetes de usuario y aplicaciones en segundo plano para forzar la recolección de basura de la máquina virtual Android y liberar búferes de memoria.
+  - Ejecuta `am kill-all` para limpiar procesos muertos en caché de forma transparente.
+  - Audita el estado de `/proc/meminfo` antes y después de la operación para certificar los megabytes reales devueltos al sistema operativo.
 - **`scan_other_storage.sh`**:
   - Se extrae al directorio de caché interno de la app al momento del escaneo.
   - Se ejecuta mediante `ShizukuHelper.executeAdbCommand("sh ...")` si Shizuku está disponible, o mediante el runtime de Java como fallback.
   - Emite líneas estructuradas: `ITEM|<tamano_bytes>|<ruta_absoluta>|<categoria>|<nivel_seguridad>|<descripcion>`.
   - Detección especializada de **Bases de Datos Huérfanas**: Compara paquetes instalados (`pm list packages`) con carpetas en `Android/data/` y localiza bases de datos SQLite abandonadas, además de rastrear fragmentos de transacciones WAL/SHM que quedaron huérfanos sin su base de datos principal.
   - Niveles de seguridad asignados:
-    - `SAFE`: Eliminar sin riesgo alguno (miniaturas, `.tmp`, `.log`, cachés de descarga, bases de datos residuales de apps desinstaladas, fragmentos WAL/SHM huérfanos).
-    - `CAUTION`: Analizar antes de borrar (carpetas completas sin clasificar, descargas antiguas).
-    - `KEEP`: Archivos protegidos que no deben borrarse jamás (`.obb` de apps activas, bases de datos SQLite en uso activo).
+    - `SAFE`: Eliminar sin riesgo alguno (miniaturas, `.tmp`, `.log`, cachés de descarga, bases de datos residuales de apps desinstaladas, fragmentos WAL/SHM huérfanos, procesos de RAM en caché).
+    - `CAUTION`: Analizar antes de borrar (carpetas completas sin clasificar, descargas antiguas, servicios en segundo plano).
+    - `KEEP`: Archivos protegidos que no deben borrarse jamás (`.obb` de apps activas, bases de datos SQLite en uso activo, procesos vitales del sistema).
 - **`clean_orphaned_packages.sh`**:
   - Obtiene la lista activa de paquetes (`pm list packages`) y rastrea `/sdcard/Android/data` y `/sdcard/Android/obb`.
   - Reporta y/o purga carpetas residuales y bases de datos SQLite asociadas a aplicaciones desinstaladas que Android no eliminó.
@@ -56,13 +61,19 @@ En los ajustes de almacenamiento de Android (MIUI, One UI, ColorOS, Pixel OS, et
   - Lanza `pm trim-caches 999999999999999` para que el framework libere espacio de caché sin tocar propiedades `persist.sys.*`.
 
 ### 2. Navegación e Interfaces Especializadas
-- **`CleanScreen.kt` (Dashboard Principal)**: Resumen general del almacenamiento en tiempo real, estado de Shizuku y tarjeta de acceso prioritario a la herramienta de «Otros».
-- **`OtherStorageScreen.kt` (Interfaz 100% Independiente)**: Pantalla dedicada con barra de navegación superior, soporte nativo de retroceso (`BackHandler`), métricas de espacio liberable, chips de filtrado por nivel de riesgo y categoría, listado pormenorizado y botón de borrado masivo con confirmación.
-- **`DebugConsoleScreen.kt` (Herramientas de Depuración Embebidas)**: Panel con visor de Logcat en vivo y terminal de consola interactiva accesible desde el icono de diagnóstico en la barra superior.
+- **`CleanScreen.kt` (Dashboard Principal)**: Resumen general del almacenamiento en tiempo real, estado de Shizuku, tarjeta de acceso a la herramienta de «Otros» y tarjeta de acceso a la herramienta de «Limpieza Quirúrgica de RAM».
+- **`OtherStorageScreen.kt` (Interfaz 100% Independiente para «Otros»)**: Pantalla dedicada con barra de navegación superior, soporte nativo de retroceso (`BackHandler`), métricas de espacio liberable, chips de filtrado por nivel de riesgo y categoría, listado pormenorizado y botón de borrado masivo con confirmación.
+- **`RamCleanScreen.kt` (Interfaz Exclusiva de Optimización de RAM & Fugas)**: Pantalla dedicada con velocímetro circular de memoria RAM en tiempo real, métricas de memoria total, libre, usada y recuperable, categorización inteligente (Caché, Vacíos, Servicios, Sistema), selección rápida y optimización quirúrgica mediante `trim_ram_and_leaks.sh`.
+- **`DebugConsoleScreen.kt` (Herramientas de Depuración Embebidas)**: Panel con visor de Logcat en vivo, terminal interactiva Shizuku y pestaña de diagnóstico de LeakCanary con disparadores de volcado de Heap y simulación de fugas.
 - **Transición Fluida**: Transición gestionada por `CleanViewModel.currentScreen` y `Crossfade` en `MainActivity.kt`, garantizando que el estado del escaneo se mantenga intacto al navegar entre pantallas.
 
 ### 3. Herramientas de Depuración Embebidas para Móvil (Sin PC)
-- **LeakCanary 2.14**: Integrado en la configuración `debugImplementation`. Al instalar el APK Debug en el móvil, crea automáticamente la aplicación independiente **"Leaks"** en el cajón de aplicaciones para inspeccionar fugas de memoria y retenciones de Compose sin necesidad de un ordenador.
+- **LeakCanary 2.14 Totalmente Funcional**:
+  - Integrado en `implementation` para garantizar su presencia activa en compilaciones independientes para Uptodown/móvil.
+  - Inicializado de forma prioritaria en `CleanerApp.kt` (`Application`) con `retainedVisibleThreshold = 1` para avisar de inmediato ante cualquier retención.
+  - Permiso `POST_NOTIFICATIONS` declarado y solicitado dinámicamente en Android 13+ para garantizar que las notificaciones sonoras y visuales se emitan en la barra de estado.
+  - App independiente **"Leaks"** instalada automáticamente en el teléfono y ejecutable desde el botón de la consola de depuración.
+  - Botón para forzar volcado de Heap manual (`LeakCanary.dumpHeap()`) y simular fugas de prueba controladas (`AppWatcher.objectWatcher.expectWeaklyReachable`).
 - **Visor de Logcat en Vivo**: Streaming de logs del sistema operativo con filtros por texto y niveles (VERBOSE, DEBUG, INFO, WARN, ERROR) con colores distintivos y capacidad de vaciado de buffer (`logcat -c`).
 - **Terminal Shell Shizuku**: Ejecución de comandos del sistema directos (`pm list packages`, `df -h`, `id`, `ls -la`) con accesos rápidos preconfigurados y salida formateada en fuente monoespaciada tipo consola.
 

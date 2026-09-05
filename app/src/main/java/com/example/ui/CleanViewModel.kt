@@ -31,6 +31,11 @@ import kotlinx.coroutines.launch
 
 import com.example.model.LogEntry
 import com.example.model.LogLevel
+import com.example.model.RamProcessItem
+import com.example.model.RamScanResult
+import com.example.model.RamStats
+import com.example.model.RamTrimResult
+import com.example.scanner.RamCleaner
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +44,7 @@ import kotlinx.coroutines.withContext
 enum class AppScreen {
     DASHBOARD,
     OTHER_STORAGE,
+    RAM_CLEANER,
     DEBUG_CONSOLE
 }
 
@@ -49,6 +55,13 @@ class CleanViewModel(application: Application) : AndroidViewModel(application) {
 
     fun navigateToOtherStorage() {
         _currentScreen.value = AppScreen.OTHER_STORAGE
+    }
+
+    fun navigateToRamCleaner(context: Context? = null) {
+        _currentScreen.value = AppScreen.RAM_CLEANER
+        if (context != null) {
+            startRamScan(context)
+        }
     }
 
     fun navigateToDashboard() {
@@ -459,5 +472,121 @@ class CleanViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearTerminalOutput() {
         _terminalOutput.value = "Consola limpiada.\n"
+    }
+
+    // ==============================================================================
+    // GESTIÓN DE MEMORIA RAM Y DETECCIÓN DE FUGAS
+    // ==============================================================================
+
+    private val _ramScanResult = MutableStateFlow(RamScanResult())
+    val ramScanResult: StateFlow<RamScanResult> = _ramScanResult.asStateFlow()
+
+    private val _isRamTrimming = MutableStateFlow(false)
+    val isRamTrimming: StateFlow<Boolean> = _isRamTrimming.asStateFlow()
+
+    private val _ramTrimSummary = MutableStateFlow<RamTrimResult?>(null)
+    val ramTrimSummary: StateFlow<RamTrimResult?> = _ramTrimSummary.asStateFlow()
+
+    val totalSelectedRamBytes: StateFlow<Long> = _ramScanResult.map { res ->
+        res.processes.filter { it.isSelected }.sumOf { it.pssBytes }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, 0L)
+
+    fun startRamScan(context: Context) {
+        if (_ramScanResult.value.isScanning || _isRamTrimming.value) return
+
+        viewModelScope.launch {
+            RamCleaner.scanRamFlow(context).collect { result ->
+                _ramScanResult.value = result
+            }
+        }
+    }
+
+    fun toggleRamProcessSelection(packageName: String) {
+        val current = _ramScanResult.value
+        val updatedList = current.processes.map { proc ->
+            if (proc.packageName == packageName) proc.copy(isSelected = !proc.isSelected) else proc
+        }
+        _ramScanResult.value = current.copy(processes = updatedList)
+    }
+
+    fun selectAllRamCandidates() {
+        val current = _ramScanResult.value
+        val updatedList = current.processes.map { it.copy(isSelected = true) }
+        _ramScanResult.value = current.copy(processes = updatedList)
+    }
+
+    fun deselectAllRamCandidates() {
+        val current = _ramScanResult.value
+        val updatedList = current.processes.map { it.copy(isSelected = false) }
+        _ramScanResult.value = current.copy(processes = updatedList)
+    }
+
+    fun trimSelectedRam(context: Context) {
+        val selected = _ramScanResult.value.processes.filter { it.isSelected }
+        if (selected.isEmpty() || _isRamTrimming.value) return
+
+        viewModelScope.launch {
+            _isRamTrimming.value = true
+            val initialAvail = _ramScanResult.value.stats.availableBytes
+            val pkgs = selected.map { it.packageName }
+            val result = RamCleaner.trimSelectedProcesses(context, pkgs, initialAvail)
+            if (result.isSuccess) {
+                _ramTrimSummary.value = result.getOrNull()
+                _actionMessage.value = "¡Memoria RAM optimizada exitosamente sin reiniciar!"
+                // Re-escanear para actualizar datos en pantalla
+                startRamScan(context)
+            } else {
+                _actionMessage.value = "Error al optimizar RAM: ${result.exceptionOrNull()?.localizedMessage}"
+            }
+            _isRamTrimming.value = false
+        }
+    }
+
+    fun dismissRamSummary() {
+        _ramTrimSummary.value = null
+    }
+
+    // ==============================================================================
+    // ACCIONES DIRECTAS DE LEAKCANARY
+    // ==============================================================================
+
+    fun forceLeakCanaryDump(context: Context) {
+        try {
+            leakcanary.LeakCanary.dumpHeap()
+            _actionMessage.value = "Volcado de Heap solicitado. LeakCanary está analizando la memoria en segundo plano."
+        } catch (e: Throwable) {
+            _actionMessage.value = "No se pudo solicitar el volcado: ${e.localizedMessage}"
+        }
+    }
+
+    private val leakedObjectsHolder = mutableListOf<Any>()
+
+    fun triggerTestLeak() {
+        val dummyLeaked = object {
+            val description = "Fuga simulada intencional creada el ${System.currentTimeMillis()}"
+            val payload = ByteArray(512 * 1024) // 512 KB
+        }
+        leakedObjectsHolder.add(dummyLeaked)
+        try {
+            leakcanary.AppWatcher.objectWatcher.watch(
+                dummyLeaked,
+                "Fuga de prueba intencional para verificar LeakCanary en el dispositivo"
+            )
+            _actionMessage.value = "Fuga de prueba registrada en AppWatcher. Genera un volcado para ver la notificación."
+        } catch (e: Throwable) {
+            _actionMessage.value = "Error al registrar en AppWatcher: ${e.localizedMessage}"
+        }
+    }
+
+    fun openLeaksApp(context: Context) {
+        try {
+            val intent = android.content.Intent().apply {
+                setClassName(context.packageName, "leakcanary.internal.activity.LeakActivity")
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Throwable) {
+            _actionMessage.value = "No se pudo abrir la app de Leaks: ${e.localizedMessage}"
+        }
     }
 }

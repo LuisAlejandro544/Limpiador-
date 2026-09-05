@@ -15,25 +15,35 @@ Esta aplicación proporciona una interfaz técnica de alta precisión para escan
 ## 🚀 Características Principales
 
 1. **Suite de Scripts Shell Autónomos (`assets/scripts/`)**:
+   - `trim_ram_and_leaks.sh`: **Limpieza quirúrgica de memoria RAM y fugas**. Utiliza `am trim-memory <paquete> COMPLETE` y `am kill-all` para reclamar memoria caché y liberar procesos en segundo plano de manera segura sin forzar reinicios ni dañar procesos vitales del sistema.
    - `scan_other_storage.sh`: Detección profunda de miniaturas ocultas (`.thumbnails`), cachés multimedia, temporales, APKs en desuso y **bases de datos huérfanas/fragmentos SQLite rotos** (`.db-wal`, `.db-shm`, `.db-journal`) abandonados por aplicaciones desinstaladas.
    - `clean_orphaned_packages.sh`: Comparador inteligente que audita `/sdcard/Android/data` y `/sdcard/Android/obb` contra los paquetes instalados (`pm list packages`) para identificar carpetas y bases de datos residuales de juegos y aplicaciones desinstaladas que siguen ocupando gigabytes.
    - `purge_system_logs_and_dumps.sh`: Detección y purga segura de volcados `.dump`, `.log`, `.trace`, *tombstones* y archivos residuales de depuración en `/data/local/tmp`.
    - `trim_art_cache.sh`: Invocación del mecanismo oficial del sistema `pm trim-caches 999999999999999` y limpieza de temporales de compilación DEX sin alterar propiedades protegidas del sistema.
    - Clasificación estricta por niveles de seguridad:
-     - 🟢 **SEGURO (SAFE)**: Miniaturas, temporales `.tmp`, cachés de descarga, bases de datos residuales de apps desinstaladas, fragmentos WAL/SHM huérfanos y logs. Borrado garantizado sin efectos secundarios.
-     - 🟡 **PRECAUCIÓN (CAUTION)**: Carpetas de apps ya desinstaladas, descargas antiguas de más de 30 días, backups locales. Requiere confirmación del usuario.
-     - 🔴 **VITAL (KEEP)**: Archivos `.obb` de juegos instalados, bases de datos SQLite en uso activo, copias de seguridad de cifrado y directorios raíz críticos. Están protegidos contra borrado involuntario.
+     - 🟢 **SEGURO (SAFE)**: Miniaturas, temporales `.tmp`, cachés de descarga, bases de datos residuales de apps desinstaladas, fragmentos WAL/SHM huérfanos, procesos de RAM en caché y procesos vacíos. Borrado garantizado sin efectos secundarios.
+     - 🟡 **PRECAUCIÓN (CAUTION)**: Carpetas de apps ya desinstaladas, descargas antiguas de más de 30 días, servicios en segundo plano. Requiere confirmación del usuario.
+     - 🔴 **VITAL (KEEP)**: Archivos `.obb` de juegos instalados, bases de datos SQLite en uso activo, apps del sistema y procesos activos en primer plano. Están protegidos contra cierre o borrado involuntario.
 
-2. **Interfaz 100% Independiente para «Otros» (`OtherStorageScreen`)**:
+2. **Herramienta Exclusiva de Limpieza de RAM & Fugas (`RamCleanScreen`)**:
+   - Pantalla dedicada con medidor circular de memoria RAM en tiempo real, desglose de memoria total, libre, usada y espacio recuperable.
+   - Clasificación inteligente de procesos por categorías: *Segundo Plano / Caché* (100% seguro), *Procesos Vacíos*, *Servicios en Segundo Plano* y *Sistema / Activos*.
+   - Selección granular e inteligente (selección rápida con un toque de procesos seguros, exclusión automática de aplicaciones críticas del sistema).
+   - Optimización en un toque que ejecuta `trim_ram_and_leaks.sh` reportando la ganancia exacta de megabytes liberados sin congelar la interfaz.
+
+3. **Interfaz 100% Independiente para «Otros» (`OtherStorageScreen`)**:
    - Pantalla dedicada con barra de navegación superior, soporte para botón físico de volver (`BackHandler`), métricas de espacio liberable en tiempo real, filtros dinámicos por nivel de seguridad (*Seguros*, *Precaución*, *Vital*) y por categoría (*Bases de Datos Huérfanas*, *Miniaturas*, *Cachés*).
    - Acciones de selección rápida con un toque ("Marcar solo seguros", "Desmarcar todos") y botón flotante de limpieza con diálogo de confirmación de seguridad.
 
-3. **Herramientas de Depuración Integradas para el Móvil (Sin PC)**:
-   - 🐤 **LeakCanary 2.14**: En el APK Debug se autoinstala la app independiente **"Leaks"** con su propio icono en el cajón de aplicaciones del teléfono para monitorear retenciones de memoria y fugas en segundo plano sin cables.
+4. **Herramientas de Depuración y LeakCanary Integradas (Sin PC)**:
+   - 🐤 **LeakCanary 2.14 Activo y Notificaciones Funcionando**: Integrado a nivel de aplicación con clase `CleanerApp` (`Application`) y umbral de 1 objeto retenido para análisis inmediato. Con soporte completo para el permiso `POST_NOTIFICATIONS` de Android 13+ y pestaña dedicada en `DebugConsoleScreen` con botones para:
+     - Abrir la app independiente **"Leaks"** directamente desde la interfaz.
+     - Forzar volcado de Heap (`dumpHeap`) y emitir la notificación de análisis al instante.
+     - Simular una fuga de memoria de prueba (512 KB) para verificar el funcionamiento de las alertas y el rastreo en vivo.
    - 💻 **Visor de Logcat en Vivo (`DebugConsoleScreen`)**: Panel de diagnóstico accesible desde el icono de depuración en la barra superior con streaming de consola en vivo, chips de filtrado por nivel de severidad (VERBOSE, DEBUG, INFO, WARN, ERROR), buscador textual y vaciado de logs (`logcat -c`).
    - ⚡ **Consola Shell Shizuku Embebida**: Ventana interactiva de terminal para teclear o disparar comandos de prueba rápidos (`id`, `whoami`, `pm list packages`, `ls -la /sdcard/Android/data`) directamente en el dispositivo móvil.
 
-4. **Automatización CI/CD con Scripts Shell Dedicados (`.github/scripts/`)**:
+5. **Automatización CI/CD con Scripts Shell Dedicados (`.github/scripts/`)**:
    - `setup_debug_keystore.sh`: Script ejecutable que elimina keystores previas y fuerza la generación de un `debug.keystore` limpio con `keytool` en `./debug.keystore` y `~/.android/debug.keystore` con permisos 644.
    - `setup_debug_tools.sh`: Script que verifica, inyecta y pre-descarga las dependencias de depuración (LeakCanary y Visor de Logcat) antes de la compilación de Gradle.
    - `setup_shizuku_deps.sh`: Script ejecutable que verifica, inyecta y descarga anticipadamente las dependencias de Shizuku (`api` y `provider` 13.1.5) y comprueba el `ShizukuProvider` y `<queries>` en el Manifest.
@@ -77,23 +87,29 @@ Esta aplicación proporciona una interfaz técnica de alta precisión para escan
 app/src/main/
 ├── assets/
 │   └── scripts/
+│       ├── trim_ram_and_leaks.sh        # Limpieza quirúrgica de memoria RAM y am kill-all
 │       ├── scan_other_storage.sh        # Script shell para escaneo y clasificación de «Otros»
 │       ├── clean_orphaned_packages.sh   # Cazador de carpetas de apps desinstaladas en Android/data
 │       ├── purge_system_logs_and_dumps.sh # Purga de logs .dump, .trace y /data/local/tmp
 │       └── trim_art_cache.sh            # Recorte global de caché con pm trim-caches
 ├── java/com/example/
-│   ├── MainActivity.kt                  # Activity con Edge-to-Edge y registro de permisos
+│   ├── CleanerApp.kt                    # Application class para inicialización de LeakCanary
+│   ├── MainActivity.kt                  # Activity con Edge-to-Edge, permisos y rutas
 │   ├── model/
 │   │   ├── StorageModels.kt             # Modelos de datos: JunkItem, OtherStorageItem, SafetyLevel
+│   │   ├── RamModels.kt                 # Modelos de RAM: RamStatus, ProcessInfo, ProcessCategory
 │   │   └── ShizukuModels.kt             # Estado de conexión Shizuku
 │   ├── scanner/
 │   │   ├── StorageScanner.kt            # Escáner tradicional de cachés y temporales
-│   │   └── OtherStorageScanner.kt       # Motor de ejecución del script shell + parser por Flow
+│   │   ├── OtherStorageScanner.kt       # Motor de ejecución del script shell + parser por Flow
+│   │   └── RamCleaner.kt                # Auditoría y liberación de memoria RAM vía Shell/Shizuku
 │   ├── shizuku/
 │   │   └── ShizukuHelper.kt             # Binder IPC con Shizuku, IPackageManager y ejecución ADB
 │   └── ui/
 │       ├── CleanScreen.kt               # Pantalla principal (Dashboard) en Jetpack Compose
 │       ├── OtherStorageScreen.kt        # Interfaz independiente para análisis profundo de «Otros»
+│       ├── RamCleanScreen.kt            # Pantalla exclusiva para optimización y fugas de RAM
+│       ├── DebugConsoleScreen.kt        # Visor de Logcat en vivo, consola Shell y control LeakCanary
 │       ├── CleanViewModel.kt            # Lógica de estado reactiva (StateFlow)
 │       ├── components/                  # Componentes M3 reutilizables
 │       │   ├── OtherStorageSection.kt   # Subcomponentes de visualización de «Otros»

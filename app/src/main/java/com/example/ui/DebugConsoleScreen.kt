@@ -3,6 +3,7 @@ package com.example.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -47,6 +50,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -70,6 +74,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +101,7 @@ fun DebugConsoleScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var filterText by remember { mutableStateOf("") }
     var selectedLogLevel by remember { mutableStateOf(LogLevel.ALL) }
@@ -220,7 +226,11 @@ fun DebugConsoleScreen(
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = if (selectedTab == 0) AmberWarning else CyanPrimary
+                        color = when (selectedTab) {
+                            0 -> AmberWarning
+                            1 -> CyanPrimary
+                            else -> Color(0xFFFDE047)
+                        }
                     )
                 }
             ) {
@@ -230,8 +240,8 @@ fun DebugConsoleScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(imageVector = Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Logcat en Vivo", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Logcat", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     },
                     selectedContentColor = AmberWarning,
@@ -243,35 +253,57 @@ fun DebugConsoleScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(imageVector = Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Terminal Shell", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Shell", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     },
                     selectedContentColor = CyanPrimary,
                     unselectedContentColor = TextSecondary
                 )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("LeakCanary", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    selectedContentColor = Color(0xFFFDE047),
+                    unselectedContentColor = TextSecondary
+                )
             }
 
-            // Banner informativo de LeakCanary en el APK Debug
+            // Banner interactivo de LeakCanary en el APK
             Surface(
                 color = Color(0xFF1E1B4B),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { selectedTab = 2 }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "🐤 LeakCanary Activo:",
+                        text = "🐤 LeakCanary 2.14:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFFDE047)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Viene como app 'Leaks' independiente en el cajón de tu teléfono.",
+                        text = "Rastreo activo. Toca para ver controles y diagnóstico.",
                         fontSize = 10.sp,
-                        color = Color.White
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.OpenInNew,
+                        contentDescription = null,
+                        tint = Color(0xFFFDE047),
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
@@ -403,7 +435,7 @@ fun DebugConsoleScreen(
                         }
                     }
                 }
-            } else {
+            } else if (selectedTab == 1) {
                 // ==================== TERMINAL SHELL TAB ====================
                 Column(
                     modifier = Modifier
@@ -538,6 +570,131 @@ fun DebugConsoleScreen(
                             } else {
                                 Icon(Icons.Default.Send, contentDescription = "Ejecutar", tint = Color.Black, modifier = Modifier.size(16.dp))
                             }
+                        }
+                    }
+                }
+            } else if (selectedTab == 2) {
+                // ==================== LEAKCANARY TAB ====================
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = TechDarkSurface),
+                        border = BorderStroke(1.dp, Color(0xFFFDE047).copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "🐤", fontSize = 24.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "LeakCanary 2.14 Activo",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFDE047)
+                                    )
+                                    Text(
+                                        text = "Rastreador de fugas de memoria en tiempo real",
+                                        fontSize = 12.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Text(
+                                text = "• Estado: Iniciado automáticamente en CleanerApp con umbral sensible (1 objeto retenido).\n" +
+                                       "• Notificaciones: Con el permiso POST_NOTIFICATIONS concedido, verás el aviso sonoro y visual en la barra superior al detectar fugas.\n" +
+                                       "• App Leaks: Se instala automáticamente en tu cajón de aplicaciones de Android con un icono de patito amarillo.",
+                                fontSize = 12.sp,
+                                color = TextPrimary,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Acciones de Diagnóstico",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+
+                    Button(
+                        onClick = { viewModel.openLeaksApp(context) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("open_leaks_app_button"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFDE047),
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Abrir Aplicación «Leaks»", fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = { viewModel.forceLeakCanaryDump(context) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("force_heap_dump_button"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CyanPrimary,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Forzar Volcado de Heap y Notificar", fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { viewModel.triggerTestLeak() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("trigger_test_leak_button"),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AmberWarning),
+                        border = BorderStroke(1.dp, AmberWarning),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Simular Fuga de Prueba (512 KB)")
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = TechDarkSurfaceVariant),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = "¿Cómo probar que funciona ahora mismo?",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "1. Toca 'Simular Fuga de Prueba'.\n2. Toca 'Forzar Volcado de Heap y Notificar'.\n3. Verás la notificación inmediata de LeakCanary en la barra superior de Android con el análisis completo.",
+                                fontSize = 12.sp,
+                                color = TextSecondary,
+                                lineHeight = 16.sp
+                            )
                         }
                     }
                 }

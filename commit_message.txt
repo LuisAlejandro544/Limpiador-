@@ -1,11 +1,10 @@
-feat: Corrección de detección de Shizuku, Action CI para dependencias de Shizuku y depuración móvil
+feat: Limpiador quirúrgico de RAM con script Shell, pantalla exclusiva y corrección de LeakCanary
 
-- Corrección del reconocimiento de Shizuku en Android 11+: adición de visibilidad de paquete en <queries> para 'moe.shizuku.manager' y reestructuración de la detección dando prioridad absoluta a pingBinder() para reconocer Shizuku y Sui de forma inmediata.
-- Implementación de IPackageManager dinámico con ShizukuBinderWrapper y SystemServiceHelper para grantRuntimePermission sin fallos por binder desactualizado.
-- Botones de acción contextual en ShizukuStatusCard para abrir la app Shizuku directamente desde el móvil cuando el servicio está inactivo y reintentar la vinculación con un toque.
-- Creación del script CI .github/scripts/setup_shizuku_deps.sh y workflow build-shizuku-debug-apk.yml para obligar a GitHub Actions a inyectar, verificar y descargar anticipadamente las dependencias oficiales de Shizuku (api y provider 13.1.5).
-- Inclusión del script .github/scripts/setup_debug_keystore.sh para forzar la generación incondicional de debug.keystore con keytool en la raíz y ~/.android sin depender de búsquedas externas.
-- Inclusión del script .github/scripts/setup_debug_tools.sh para verificar e inyectar LeakCanary 2.14 y herramientas de depuración en el flujo de CI.
-- Integración de LeakCanary 2.14 en APK Debug para monitoreo automático de fugas de memoria con su app independiente 'Leaks' en el cajón de aplicaciones.
-- Implementación del Visor de Logcat en Vivo y Consola Shell interactiva (DebugConsoleScreen) con filtrado en tiempo real, chips por nivel de log (VERBOSE, DEBUG, INFO, WARN, ERROR), comandos rápidos y ejecución Shizuku/Shell.
-- Acceso directo a Herramientas de Debug integrado en la barra superior del Dashboard principal.
+- Creación del script Shell 'trim_ram_and_leaks.sh' en assets/scripts/ para recuperación de RAM en segundo plano usando 'am trim-memory COMPLETE' y 'am kill-all' vía Shizuku sin necesidad de reiniciar el dispositivo.
+- Creación de pantalla exclusiva 'RamCleanScreen.kt' con indicador circular de consumo de RAM, métricas en tiempo real (total, libre, usada, recuperable) y desglose por categorías (Caché, Vacíos, Servicios y Sistema).
+- Implementación de 'RamCleaner.kt' y 'RamModels.kt' para escaneo no bloqueante en Dispatchers.IO mediante dumpsys meminfo / /proc/meminfo con fallback nativo en ActivityManager.
+- Integración de tarjeta de acceso rápido al limpiador de RAM en el Dashboard principal (CleanScreen.kt) y registro de ruta de navegación en MainActivity.kt.
+- Corrección de LeakCanary en APKs independientes para distribución móvil: cambio de alcance a 'implementation' en build.gradle.kts y registro de clase personalizada 'CleanerApp' (Application) con 'retainedVisibleThreshold = 1' para detección inmediata.
+- Adición de permiso POST_NOTIFICATIONS en AndroidManifest.xml y solicitud dinámica en MainActivity.kt para garantizar la aparición de notificaciones de LeakCanary en la barra de estado en Android 13+.
+- Creación de pestaña interactiva de LeakCanary en DebugConsoleScreen.kt con accesos para abrir la app independiente 'Leaks', forzar volcado de Heap con notificación y simular fugas de prueba.
+- Declaración del permiso KILL_BACKGROUND_PROCESSES en el manifiesto para optimización de procesos en caché.

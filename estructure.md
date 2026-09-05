@@ -38,33 +38,38 @@ La aplicación sigue el patrón **Model-View-ViewModel (MVVM)** con **Flujo Unid
 ├── build.gradle.kts                     # Configuración de Gradle raíz
 ├── settings.gradle.kts                  # Declaración de módulos y repositorios Maven
 ├── app/
-│   ├── build.gradle.kts                 # Dependencias (Compose, Shizuku, LeakCanary Debug)
+│   ├── build.gradle.kts                 # Dependencias (Compose, Shizuku, LeakCanary)
 │   └── src/
 │       ├── main/
-│       │   ├── AndroidManifest.xml      # Declaración de permisos y configuración de Shizuku Provider
+│       │   ├── AndroidManifest.xml      # Permisos (Storage, Post-Notifications, Kill-Processes) y Shizuku Provider
 │       │   ├── assets/
 │       │   │   └── scripts/
+│       │   │       ├── trim_ram_and_leaks.sh        # Script Shell para recuperación quirúrgica de memoria RAM
 │       │   │       ├── scan_other_storage.sh        # Script Shell para auditar carpetas de «Otros»
 │       │   │       ├── clean_orphaned_packages.sh   # Cazador de carpetas de apps desinstaladas
 │       │   │       ├── purge_system_logs_and_dumps.sh # Purga de volcados y logs de sistema
 │       │   │       └── trim_art_cache.sh            # Recorte global de cachés y optimización ART
 │       │   ├── java/com/example/
+│       │   │   ├── CleanerApp.kt        # Application class para inicialización prioritaria de LeakCanary
 │       │   │   ├── MainActivity.kt      # Punto de entrada de la app Android, enrutador de pantallas
 │       │   │   ├── model/
 │       │   │   │   ├── StorageModels.kt # Modelos: JunkCategory, OtherStorageItem, SafetyLevel
+│       │   │   │   ├── RamModels.kt     # Modelos: RamStatus, ProcessInfo, ProcessCategory, RamOptimizationResult
 │       │   │   │   ├── ShizukuModels.kt # Modelos: ShizukuStatus, ShizukuInfo
 │       │   │   │   └── LogcatModel.kt   # Modelos: LogEntry, LogLevel para visor en vivo
 │       │   │   ├── scanner/
 │       │   │   │   ├── StorageScanner.kt # Motor de análisis estándar de carpetas y cachés
-│       │   │   │   └── OtherStorageScanner.kt # Deserializador de salida del script shell a objetos Kotlin
+│       │   │   │   ├── OtherStorageScanner.kt # Deserializador de salida del script shell a objetos Kotlin
+│       │   │   │   └── RamCleaner.kt     # Auditoría de procesos (/proc/meminfo) y ejecución de trim_ram_and_leaks.sh
 │       │   │   ├── shizuku/
 │       │   │   │   ├── ShizukuHelper.kt             # Detección resiliente, listeners de binder y ejecución ADB
 │       │   │   │   └── ShizukuPermissionManager.java # Puente nativo IPC con IPackageManager y ShizukuBinderWrapper
 │       │   │   └── ui/
-│       │   │       ├── CleanViewModel.kt # StateFlows de progreso, selección, navegación, logcat y terminal
+│       │   │       ├── CleanViewModel.kt # StateFlows de progreso, selección, navegación, RAM, logcat y terminal
 │       │   │       ├── CleanScreen.kt    # Composable Dashboard principal
 │       │   │       ├── OtherStorageScreen.kt # Pantalla 100% independiente para auditoría de «Otros»
-│       │   │       ├── DebugConsoleScreen.kt # Visor de Logcat en vivo y Consola Shell Shizuku
+│       │   │       ├── RamCleanScreen.kt # Pantalla 100% independiente para optimización de RAM y fugas
+│       │   │       ├── DebugConsoleScreen.kt # Visor de Logcat, terminal interactiva y controles de LeakCanary
 │       │   │       ├── components/
 │       │   │       │   ├── OtherStorageSection.kt  # Subcomponentes para visualización de ítems
 │       │   │       │   ├── ShizukuStatusCard.kt    # Tarjeta de diagnóstico de permisos ADB/Root
@@ -143,4 +148,57 @@ ShizukuHelper.executeAdbCommand()      Runtime.getRuntime().exec()
 3. **Automatización en CI/CD**:
    - `.github/scripts/setup_shizuku_deps.sh`: Script que comprueba y pre-descarga `dev.rikka.shizuku:api` y `dev.rikka.shizuku:provider`.
    - `.github/workflows/build-shizuku-debug-apk.yml`: Pipeline para compilar el APK Debug con validación obligatoria de la cadena de dependencias de Shizuku.
+
+---
+
+## 🧠 Flujo de Datos: Limpieza Quirúrgica de RAM
+
+```
+[Usuario entra a RamCleanScreen]
+          │
+          ▼
+CleanViewModel.loadRamStats()
+          │
+          ▼  (Ejecuta en Dispatchers.IO)
+RamCleaner.getRamStatus() + scanRunningProcesses()
+          │
+          ├─► Lee /proc/meminfo o dumpsys meminfo
+          ├─► Categoriza procesos:
+          │   - CACHE (Seguro: am kill-all / trim)
+          │   - EMPTY (Seguro)
+          │   - BACKGROUND_SERVICE (Precaución)
+          │   - SYSTEM / FOREGROUND (Vital / Protegido)
+          │
+          ▼
+Emisión a CleanViewModel.ramStatus & processList
+          │
+          ▼
+Recomposición en RamCleanScreen (Medidor Circular + Tarjetas de Procesos)
+          │
+[Usuario presiona "Optimizar RAM Ahora"]
+          │
+          ▼
+RamCleaner.optimizeRam(selectedPackages)
+          │
+          ├─► Ejecuta /assets/scripts/trim_ram_and_leaks.sh
+          ├─► Invoca 'am trim-memory <pkg> COMPLETE' vía Shizuku / Shell
+          ├─► Invoca 'am kill-all'
+          ├─► Mide memoria libre resultante en /proc/meminfo
+          │
+          ▼
+CleanViewModel actualiza ramOptimizationResult
+(Muestra Snackbar / Diálogo con los megabytes liberados)
+```
+
+---
+
+## 🐤 Arquitectura de Detección de Fugas (LeakCanary)
+
+1. **Clase Application (`CleanerApp.kt`)**: Inicializa `LeakCanary.config` con umbral ultra sensible (`retainedVisibleThreshold = 1`) para alertar ante la primera referencia retenida.
+2. **Permiso POST_NOTIFICATIONS**: Gestionado en `MainActivity.kt` para que Android 13+ no bloquee los avisos en la barra de estado.
+3. **Pestaña en Consola de Depuración (`DebugConsoleScreen.kt`)**: Proporciona botones dedicados para:
+   - Iniciar la actividad interna `leakcanary.internal.activity.LeakActivity` (app independiente "Leaks").
+   - Disparar `LeakCanary.dumpHeap()` manualmente.
+   - Producir un objeto retenido de prueba de 512 KB con `AppWatcher.objectWatcher.expectWeaklyReachable` para verificación inmediata.
+
 
