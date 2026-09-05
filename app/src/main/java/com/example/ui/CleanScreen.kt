@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -71,6 +72,7 @@ import com.example.ui.components.ScanningProgressDialog
 import com.example.ui.components.ShizukuStatusCard
 import com.example.ui.components.StorageCircularGauge
 import com.example.ui.components.StoragePermissionBanner
+import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.ShizukuViolet
@@ -157,6 +159,16 @@ fun CleanScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { viewModel.navigateToDebugConsole() },
+                        modifier = Modifier.testTag("open_debug_console_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.BugReport,
+                            contentDescription = "Herramientas de Debug",
+                            tint = AmberWarning
+                        )
+                    }
                     IconButton(
                         onClick = {
                             viewModel.refreshStorageAndShizuku(context)
@@ -254,7 +266,8 @@ fun CleanScreen(
             item {
                 ShizukuStatusCard(
                     shizukuInfo = shizukuInfo,
-                    onRequestPermission = { viewModel.requestShizukuPermission() },
+                    onRequestPermission = { viewModel.requestShizukuPermission(context) },
+                    onOpenShizuku = { viewModel.openShizuku(context) },
                     onRefresh = { viewModel.refreshStorageAndShizuku(context) },
                     onAutoGrantStorage = { viewModel.autoGrantStoragePermissionsWithShizuku(context) },
                     onTrimSystemCaches = { viewModel.trimSystemCachesWithShizuku(context) }

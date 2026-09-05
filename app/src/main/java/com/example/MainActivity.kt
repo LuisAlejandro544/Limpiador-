@@ -13,6 +13,7 @@ import com.example.shizuku.ShizukuHelper
 import com.example.ui.AppScreen
 import com.example.ui.CleanScreen
 import com.example.ui.CleanViewModel
+import com.example.ui.DebugConsoleScreen
 import com.example.ui.OtherStorageScreen
 import com.example.ui.theme.MyApplicationTheme
 import rikka.shizuku.Shizuku
@@ -58,6 +59,10 @@ class MainActivity : ComponentActivity() {
                             onNavigateToOtherStorage = { viewModel.navigateToOtherStorage() }
                         )
                         AppScreen.OTHER_STORAGE -> OtherStorageScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateToDashboard() }
+                        )
+                        AppScreen.DEBUG_CONSOLE -> DebugConsoleScreen(
                             viewModel = viewModel,
                             onBack = { viewModel.navigateToDashboard() }
                         )

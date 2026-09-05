@@ -13,15 +13,10 @@ import rikka.shizuku.SystemServiceHelper;
  */
 public class ShizukuPermissionManager {
 
-    private static IPackageManager packageManagerInstance = null;
-
-    private static synchronized IPackageManager getPackageManager() {
-        if (packageManagerInstance == null) {
-            packageManagerInstance = IPackageManager.Stub.asInterface(
-                new ShizukuBinderWrapper(SystemServiceHelper.getSystemService("package"))
-            );
-        }
-        return packageManagerInstance;
+    public static IPackageManager getPackageManager() {
+        return IPackageManager.Stub.asInterface(
+            new ShizukuBinderWrapper(SystemServiceHelper.getSystemService("package"))
+        );
     }
 
     /**

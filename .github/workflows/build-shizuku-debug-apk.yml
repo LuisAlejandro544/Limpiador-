@@ -1,11 +1,11 @@
-name: Build Debug APK
+name: Build Shizuku Debug APK
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Compilar APK Debug
+  build-shizuku-debug:
+    name: Compilar APK Debug con Shizuku y Diagnóstico
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +17,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          # Caché desactivada expresamente
           cache: ''
 
       - name: Configurar Android SDK
@@ -26,27 +25,27 @@ jobs:
       - name: Generar firma Debug incondicionalmente (Script Shell)
         run: bash .github/scripts/setup_debug_keystore.sh
 
-      - name: Inyectar y descargar herramientas Debug (LeakCanary y Visor de Logcat)
-        run: bash .github/scripts/setup_debug_tools.sh
-
-      - name: Forzar descarga y verificación de dependencias Shizuku API
+      - name: Forzar descarga e inyección de dependencias Shizuku (API + Provider)
         run: bash .github/scripts/setup_shizuku_deps.sh
+
+      - name: Inyectar y verificar herramientas de depuración (LeakCanary y Logcat Viewer)
+        run: bash .github/scripts/setup_debug_tools.sh
 
       - name: Preparar Gradle Wrapper
         run: |
           if [ ! -f "gradlew" ]; then
-            echo "Inicializando wrapper de Gradle..."
+            echo "Generando gradlew wrapper..."
             gradle wrapper
           fi
           chmod +x gradlew
 
-      - name: Compilar APK Debug (Sin caché)
+      - name: Compilar APK Debug con Shizuku integrado
         run: |
           ./gradlew :app:assembleDebug --no-daemon --no-build-cache --stacktrace
 
-      - name: Subir APK Debug generado como Artefacto
+      - name: Subir APK Debug como Artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: app-shizuku-debug
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 14

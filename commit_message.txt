@@ -1,9 +1,11 @@
-feat: Interfaz independiente de Otros, caza de SQLite huérfanos y corrección de firma CI
+feat: Corrección de detección de Shizuku, Action CI para dependencias de Shizuku y depuración móvil
 
-- Creación de OtherStorageScreen: interfaz dedicada 100% independiente para la auditoría de «Otros» con TopAppBar, BackHandler para botón atrás, filtros por nivel de seguridad y categoría, y barra fija de limpieza.
-- Transición fluida con Crossfade desde el Dashboard principal hacia la auditoría de «Otros».
-- Expansión de scan_other_storage.sh y clean_orphaned_packages.sh para detectar bases de datos SQLite abandonadas y fragmentos transaccionales zombis (.db-wal, .db-shm, .db-journal) de aplicaciones desinstaladas.
-- Soporte nativo de respaldo en OtherStorageScanner para rastreo de fragmentos SQLite huérfanos.
-- Corrección en el workflow CI para generar debug.keystore en la ruta raíz requerida por Gradle (:app:validateSigningDebug).
-- Configuración de compilación manual exclusiva (workflow_dispatch) para el generador de APK Debug.
-- Adición de workflow automatizado para estandarización de mensajes de commit mediante commit_message.txt.
+- Corrección del reconocimiento de Shizuku en Android 11+: adición de visibilidad de paquete en <queries> para 'moe.shizuku.manager' y reestructuración de la detección dando prioridad absoluta a pingBinder() para reconocer Shizuku y Sui de forma inmediata.
+- Implementación de IPackageManager dinámico con ShizukuBinderWrapper y SystemServiceHelper para grantRuntimePermission sin fallos por binder desactualizado.
+- Botones de acción contextual en ShizukuStatusCard para abrir la app Shizuku directamente desde el móvil cuando el servicio está inactivo y reintentar la vinculación con un toque.
+- Creación del script CI .github/scripts/setup_shizuku_deps.sh y workflow build-shizuku-debug-apk.yml para obligar a GitHub Actions a inyectar, verificar y descargar anticipadamente las dependencias oficiales de Shizuku (api y provider 13.1.5).
+- Inclusión del script .github/scripts/setup_debug_keystore.sh para forzar la generación incondicional de debug.keystore con keytool en la raíz y ~/.android sin depender de búsquedas externas.
+- Inclusión del script .github/scripts/setup_debug_tools.sh para verificar e inyectar LeakCanary 2.14 y herramientas de depuración en el flujo de CI.
+- Integración de LeakCanary 2.14 en APK Debug para monitoreo automático de fugas de memoria con su app independiente 'Leaks' en el cajón de aplicaciones.
+- Implementación del Visor de Logcat en Vivo y Consola Shell interactiva (DebugConsoleScreen) con filtrado en tiempo real, chips por nivel de log (VERBOSE, DEBUG, INFO, WARN, ERROR), comandos rápidos y ejecución Shizuku/Shell.
+- Acceso directo a Herramientas de Debug integrado en la barra superior del Dashboard principal.

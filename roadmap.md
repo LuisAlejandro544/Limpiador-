@@ -42,8 +42,13 @@ Este documento traza la evolución técnica del proyecto, desde las bases actual
   - Auditoría de archivos `.db`, `.sqlite`, y fragmentos transaccionales zombis `.db-wal`, `.db-shm`, `.db-journal` sin archivo principal.
 - [x] **Interfaz Dedicada 100% Independiente para «Otros» (`OtherStorageScreen`)**:
   - Pantalla con AppBar propia, `BackHandler` integrado, filtros por categoría y riesgo, métricas en tiempo real y selector masivo.
-- [x] **Pipeline CI/CD en GitHub Actions (`build-debug-apk.yml`)**:
-  - Solución del error de keystore generando y ubicando `debug.keystore` en la raíz esperada por Gradle y en `~/.android`.
+- [x] **Pipeline CI/CD en GitHub Actions con Scripts Shell Dedicados**:
+  - `setup_debug_keystore.sh`: Forzado incondicional de generación de keystore con `keytool` sin depender de búsquedas externas.
+  - `setup_debug_tools.sh`: Inyección y validación anticipada de dependencias de depuración en el runner.
+  - `override-commit-message.yml`: Estandarización automatizada del mensaje de commit leyendo `commit_message.txt`.
+- [x] **Herramientas de Depuración Embebidas para el Móvil**:
+  - **LeakCanary 2.14**: Monitoreo de memoria en segundo plano que instala su propia app "Leaks" en el cajón de aplicaciones.
+  - **Visor de Logcat en Vivo y Consola Shell (`DebugConsoleScreen`)**: Panel accesible desde el TopAppBar con streaming de logs por nivel (V, D, I, W, E), comandos rápidos ADB y terminal interactiva con Shizuku.
 
 ---
 

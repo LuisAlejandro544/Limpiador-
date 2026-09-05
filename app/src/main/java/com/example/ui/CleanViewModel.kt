@@ -29,9 +29,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import com.example.model.LogEntry
+import com.example.model.LogLevel
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 enum class AppScreen {
     DASHBOARD,
-    OTHER_STORAGE
+    OTHER_STORAGE,
+    DEBUG_CONSOLE
 }
 
 class CleanViewModel(application: Application) : AndroidViewModel(application) {
@@ -45,6 +53,11 @@ class CleanViewModel(application: Application) : AndroidViewModel(application) {
 
     fun navigateToDashboard() {
         _currentScreen.value = AppScreen.DASHBOARD
+    }
+
+    fun navigateToDebugConsole() {
+        _currentScreen.value = AppScreen.DEBUG_CONSOLE
+        refreshLogcat()
     }
 
     private val _storageStats = MutableStateFlow(StorageStats())
@@ -132,8 +145,12 @@ class CleanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun requestShizukuPermission() {
-        ShizukuHelper.requestPermission()
+    fun requestShizukuPermission(context: Context? = null) {
+        ShizukuHelper.requestPermission(context)
+    }
+
+    fun openShizuku(context: Context) {
+        ShizukuHelper.openShizukuApp(context)
     }
 
     fun autoGrantStoragePermissionsWithShizuku(context: Context) {
@@ -327,5 +344,120 @@ class CleanViewModel(application: Application) : AndroidViewModel(application) {
                 _actionMessage.value = "Error al limpiar elementos: ${result.exceptionOrNull()?.localizedMessage}"
             }
         }
+    }
+
+    // ==============================================================================
+    // HERRAMIENTAS DE DEBUG: VISOR DE LOGCAT Y CONSOLA EN VIVO
+    // ==============================================================================
+
+    private val _logcatEntries = MutableStateFlow<List<LogEntry>>(emptyList())
+    val logcatEntries: StateFlow<List<LogEntry>> = _logcatEntries.asStateFlow()
+
+    private val _isLogcatLoading = MutableStateFlow(false)
+    val isLogcatLoading: StateFlow<Boolean> = _isLogcatLoading.asStateFlow()
+
+    private val _terminalOutput = MutableStateFlow("Consola lista. Ingresa un comando o pulsa un acceso rápido.\n")
+    val terminalOutput: StateFlow<String> = _terminalOutput.asStateFlow()
+
+    private val _isTerminalExecuting = MutableStateFlow(false)
+    val isTerminalExecuting: StateFlow<Boolean> = _isTerminalExecuting.asStateFlow()
+
+    fun refreshLogcat(filterText: String = "", minLevel: LogLevel = LogLevel.ALL) {
+        viewModelScope.launch {
+            _isLogcatLoading.value = true
+            val logs = withContext(Dispatchers.IO) {
+                try {
+                    val process = Runtime.getRuntime().exec("logcat -d -v time -t 600")
+                    val reader = BufferedReader(InputStreamReader(process.inputStream))
+                    val list = mutableListOf<LogEntry>()
+                    var lineId = 0L
+                    var line = reader.readLine()
+                    while (line != null) {
+                        val level = when {
+                            line.contains(" E ") || line.startsWith("E/") -> LogLevel.ERROR
+                            line.contains(" W ") || line.startsWith("W/") -> LogLevel.WARN
+                            line.contains(" I ") || line.startsWith("I/") -> LogLevel.INFO
+                            line.contains(" D ") || line.startsWith("D/") -> LogLevel.DEBUG
+                            line.contains(" V ") || line.startsWith("V/") -> LogLevel.VERBOSE
+                            else -> LogLevel.DEBUG
+                        }
+
+                        val matchesLevel = minLevel == LogLevel.ALL || level == minLevel
+                        val matchesText = filterText.isBlank() || line.contains(filterText, ignoreCase = true)
+
+                        if (matchesLevel && matchesText) {
+                            list.add(
+                                LogEntry(
+                                    id = ++lineId,
+                                    raw = line,
+                                    level = level,
+                                    tag = line.substringBefore(":").takeLast(20).trim(),
+                                    message = line
+                                )
+                            )
+                        }
+                        line = reader.readLine()
+                    }
+                    reader.close()
+                    process.destroy()
+                    list
+                } catch (e: Exception) {
+                    listOf(
+                        LogEntry(
+                            id = 1L,
+                            raw = "Error al leer logcat: ${e.message}",
+                            level = LogLevel.ERROR,
+                            tag = "LogcatError",
+                            message = e.localizedMessage ?: "Fallo de lectura"
+                        )
+                    )
+                }
+            }
+            _logcatEntries.value = logs
+            _isLogcatLoading.value = false
+        }
+    }
+
+    fun clearLogcat() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    Runtime.getRuntime().exec("logcat -c").waitFor()
+                } catch (_: Exception) {}
+            }
+            _logcatEntries.value = emptyList()
+        }
+    }
+
+    fun executeTerminalCommand(command: String) {
+        if (command.isBlank()) return
+        viewModelScope.launch {
+            _isTerminalExecuting.value = true
+            _terminalOutput.value += "\n$ $command\n"
+            val output = withContext(Dispatchers.IO) {
+                try {
+                    // Si Shizuku está disponible y autorizado, ejecutamos vía Shizuku, o runtime local
+                    if (ShizukuHelper.hasPermission()) {
+                        val result = ShizukuHelper.executeAdbCommand(command)
+                        result.getOrElse { "Error Shizuku: ${it.message}" }
+                    } else {
+                        val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
+                        val stdout = process.inputStream.bufferedReader().readText()
+                        val stderr = process.errorStream.bufferedReader().readText()
+                        process.waitFor()
+                        val full = (stdout + if (stderr.isNotBlank()) "\n[stderr]: $stderr" else "").trim()
+                        if (full.isEmpty()) "(Sin salida retornada)" else full
+                    }
+                } catch (e: Exception) {
+                    "Error al ejecutar: ${e.localizedMessage}"
+                }
+            }
+            _terminalOutput.value += "$output\n"
+            _isTerminalExecuting.value = false
+        }
+    }
+
+    fun clearTerminalOutput() {
+        _terminalOutput.value = "Consola limpiada.\n"
     }
 }

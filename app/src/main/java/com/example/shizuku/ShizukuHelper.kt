@@ -18,10 +18,34 @@ object ShizukuHelper {
     const val SHIZUKU_REQUEST_CODE = 1001
 
     fun isShizukuInstalled(context: Context): Boolean {
-        return try {
+        // 1. Si el Binder ya responde, está instalado y activo sin lugar a dudas
+        if (isAvailable()) return true
+
+        // 2. Verificación directa de paquete por PackageInfo
+        try {
             context.packageManager.getPackageInfo(SHIZUKU_PACKAGE, 0)
-            true
-        } catch (e: Exception) {
+            return true
+        } catch (e: Throwable) {
+            // Ignorado para intentar método secundario
+        }
+
+        // 3. Verificación mediante Intent de lanzamiento
+        try {
+            if (context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE) != null) {
+                return true
+            }
+        } catch (e: Throwable) {
+            // Ignorado
+        }
+
+        // 4. Verificación de ContentProvider o Intent queries
+        return try {
+            val intent = android.content.Intent("moe.shizuku.manager.action.START").apply {
+                setPackage(SHIZUKU_PACKAGE)
+            }
+            val resolveInfo = context.packageManager.queryIntentActivities(intent, 0)
+            resolveInfo.isNotEmpty()
+        } catch (e: Throwable) {
             false
         }
     }
@@ -42,61 +66,82 @@ object ShizukuHelper {
         }
     }
 
-    fun getShizukuInfo(context: Context): ShizukuInfo {
-        if (!isShizukuInstalled(context)) {
-            return ShizukuInfo(
-                status = ShizukuStatus.NOT_INSTALLED,
-                message = "Shizuku no está instalado. Puedes descargarlo de GitHub o Uptodown para desbloquear limpieza de nivel ADB."
-            )
-        }
-
+    fun openShizukuApp(context: Context): Boolean {
         return try {
-            val isPingAlive = Shizuku.pingBinder()
-            if (!isPingAlive) {
-                ShizukuInfo(
-                    status = ShizukuStatus.SERVICE_STOPPED,
-                    message = "Servicio Shizuku inactivo. Inícialo en la app Shizuku vía depuración inalámbrica o PC."
-                )
+            val intent = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+            if (intent != null) {
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                true
             } else {
-                val hasPermission = try {
-                    Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-                } catch (e: Throwable) {
-                    false
-                }
-
-                if (hasPermission) {
-                    val version = try { Shizuku.getVersion() } catch (e: Throwable) { 13 }
-                    val uid = try { Shizuku.getUid() } catch (e: Throwable) { 2000 }
-                    val privilegeLabel = if (uid == 0) "ROOT (Sui / Magisk / KernelSU)" else "ADB (Depuración Inalámbrica / Shell)"
-                    ShizukuInfo(
-                        status = ShizukuStatus.AUTHORIZED,
-                        version = version,
-                        uid = uid,
-                        message = "Conectado como UID $uid [$privilegeLabel]. IPackageManager activo para permisos y limpieza profunda."
-                    )
-                } else {
-                    ShizukuInfo(
-                        status = ShizukuStatus.PERMISSION_REQUIRED,
-                        message = "Servicio Shizuku detectado. Pulsa 'Autorizar' para conceder permisos ADB a la app."
-                    )
-                }
+                false
             }
         } catch (e: Throwable) {
-            ShizukuInfo(
-                status = ShizukuStatus.SERVICE_STOPPED,
-                message = "No se pudo comunicar con Shizuku: ${e.localizedMessage ?: "Error desconocido"}"
-            )
+            false
         }
     }
 
-    fun requestPermission() {
+    fun getShizukuInfo(context: Context): ShizukuInfo {
+        // Prioridad 1: Si el Binder de Shizuku/Sui responde activamente
+        val isPingAlive = try {
+            Shizuku.pingBinder()
+        } catch (e: Throwable) {
+            false
+        }
+
+        if (isPingAlive) {
+            val hasPermission = try {
+                if (Shizuku.isPreV11()) {
+                    false
+                } else {
+                    Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+                }
+            } catch (e: Throwable) {
+                false
+            }
+
+            return if (hasPermission) {
+                val version = try { Shizuku.getVersion() } catch (e: Throwable) { 13 }
+                val uid = try { Shizuku.getUid() } catch (e: Throwable) { 2000 }
+                val privilegeLabel = if (uid == 0) "ROOT (Sui / Magisk / KernelSU)" else "ADB (Depuración Inalámbrica / Shell)"
+                ShizukuInfo(
+                    status = ShizukuStatus.AUTHORIZED,
+                    version = version,
+                    uid = uid,
+                    message = "Conectado como UID $uid [$privilegeLabel]. IPackageManager activo para permisos y limpieza profunda."
+                )
+            } else {
+                ShizukuInfo(
+                    status = ShizukuStatus.PERMISSION_REQUIRED,
+                    message = "Servicio Shizuku activo en el dispositivo. Pulsa 'Autorizar' para conceder permisos ADB a la app."
+                )
+            }
+        }
+
+        // Prioridad 2: Si el Binder no responde, verificar si la app gestora está en el móvil
+        val isInstalled = isShizukuInstalled(context)
+        if (isInstalled) {
+            return ShizukuInfo(
+                status = ShizukuStatus.SERVICE_STOPPED,
+                message = "Servicio Shizuku inactivo. Abre la app Shizuku e inícialo mediante Depuración Inalámbrica en este móvil o vía ROOT."
+            )
+        }
+
+        // Prioridad 3: Ni Binder ni app detectados
+        return ShizukuInfo(
+            status = ShizukuStatus.NOT_INSTALLED,
+            message = "Shizuku no está instalado. Puedes descargarlo de GitHub o Uptodown para desbloquear limpieza de nivel ADB."
+        )
+    }
+
+    fun requestPermission(context: Context? = null) {
         try {
             if (Shizuku.pingBinder()) {
-                if (Shizuku.shouldShowRequestPermissionRationale()) {
-                    Shizuku.requestPermission(SHIZUKU_REQUEST_CODE)
-                } else {
+                if (!Shizuku.isPreV11()) {
                     Shizuku.requestPermission(SHIZUKU_REQUEST_CODE)
                 }
+            } else if (context != null) {
+                openShizukuApp(context)
             }
         } catch (e: Throwable) {
             // Handled gracefully

@@ -28,7 +28,19 @@ Esta aplicación proporciona una interfaz técnica de alta precisión para escan
    - Pantalla dedicada con barra de navegación superior, soporte para botón físico de volver (`BackHandler`), métricas de espacio liberable en tiempo real, filtros dinámicos por nivel de seguridad (*Seguros*, *Precaución*, *Vital*) y por categoría (*Bases de Datos Huérfanas*, *Miniaturas*, *Cachés*).
    - Acciones de selección rápida con un toque ("Marcar solo seguros", "Desmarcar todos") y botón flotante de limpieza con diálogo de confirmación de seguridad.
 
-3. **Integración con Shizuku (IPackageManager & ADB Shell)**:
+3. **Herramientas de Depuración Integradas para el Móvil (Sin PC)**:
+   - 🐤 **LeakCanary 2.14**: En el APK Debug se autoinstala la app independiente **"Leaks"** con su propio icono en el cajón de aplicaciones del teléfono para monitorear retenciones de memoria y fugas en segundo plano sin cables.
+   - 💻 **Visor de Logcat en Vivo (`DebugConsoleScreen`)**: Panel de diagnóstico accesible desde el icono de depuración en la barra superior con streaming de consola en vivo, chips de filtrado por nivel de severidad (VERBOSE, DEBUG, INFO, WARN, ERROR), buscador textual y vaciado de logs (`logcat -c`).
+   - ⚡ **Consola Shell Shizuku Embebida**: Ventana interactiva de terminal para teclear o disparar comandos de prueba rápidos (`id`, `whoami`, `pm list packages`, `ls -la /sdcard/Android/data`) directamente en el dispositivo móvil.
+
+4. **Automatización CI/CD con Scripts Shell Dedicados (`.github/scripts/`)**:
+   - `setup_debug_keystore.sh`: Script ejecutable que elimina keystores previas y fuerza la generación de un `debug.keystore` limpio con `keytool` en `./debug.keystore` y `~/.android/debug.keystore` con permisos 644.
+   - `setup_debug_tools.sh`: Script que verifica, inyecta y pre-descarga las dependencias de depuración (LeakCanary y Visor de Logcat) antes de la compilación de Gradle.
+   - `setup_shizuku_deps.sh`: Script ejecutable que verifica, inyecta y descarga anticipadamente las dependencias de Shizuku (`api` y `provider` 13.1.5) y comprueba el `ShizukuProvider` y `<queries>` en el Manifest.
+   - `build-debug-apk.yml` & `build-shizuku-debug-apk.yml`: Workflows automatizados para compilar APKs Debug con todas las dependencias forzadas y verificadas.
+   - `override-commit-message.yml`: Workflow que estandariza automáticamente los mensajes de commit en español leyendo el archivo `commit_message.txt`.
+
+5. **Integración con Shizuku (IPackageManager & ADB Shell)**:
    - Conexión dinámica por IPC con el servicio Shizuku (`moe.shizuku.manager`).
    - Concesión automática de permisos especiales de almacenamiento en Android 11+ (`MANAGE_EXTERNAL_STORAGE` / `READ_MEDIA_*`) mediante `grantRuntimePermission`.
    - Ejecución de comandos de recorte de caché global a nivel de sistema (`pm trim-caches 999999999999999`).

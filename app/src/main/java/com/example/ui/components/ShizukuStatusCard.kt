@@ -62,6 +62,7 @@ fun ShizukuStatusCard(
     shizukuInfo: ShizukuInfo,
     onRequestPermission: () -> Unit,
     onRefresh: () -> Unit,
+    onOpenShizuku: (() -> Unit)? = null,
     onAutoGrantStorage: (() -> Unit)? = null,
     onTrimSystemCaches: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -71,8 +72,8 @@ fun ShizukuStatusCard(
     val (statusColor, statusText, statusIcon) = when (shizukuInfo.status) {
         ShizukuStatus.AUTHORIZED -> Triple(EmeraldSuccess, "Conectado (Nivel ADB)", Icons.Default.CheckCircle)
         ShizukuStatus.PERMISSION_REQUIRED -> Triple(AmberWarning, "Requiere Autorización", Icons.Default.Bolt)
-        ShizukuStatus.SERVICE_STOPPED -> Triple(AmberWarning, "Servicio Detenido", Icons.Default.Warning)
-        ShizukuStatus.NOT_INSTALLED -> Triple(RedDanger, "No Instalado", Icons.Default.Info)
+        ShizukuStatus.SERVICE_STOPPED -> Triple(AmberWarning, "Servicio Inactivo", Icons.Default.Warning)
+        ShizukuStatus.NOT_INSTALLED -> Triple(RedDanger, "No Detectado", Icons.Default.Info)
     }
 
     Card(
@@ -167,22 +168,55 @@ fun ShizukuStatusCard(
                     )
                 }
 
-                if (shizukuInfo.status == ShizukuStatus.PERMISSION_REQUIRED) {
-                    Button(
-                        onClick = onRequestPermission,
-                        colors = ButtonDefaults.buttonColors(containerColor = ShizukuViolet),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(34.dp).testTag("shizuku_authorize_button")
-                    ) {
-                        Text("Autorizar", fontSize = 12.sp, color = Color.White)
+                when (shizukuInfo.status) {
+                    ShizukuStatus.PERMISSION_REQUIRED -> {
+                        Button(
+                            onClick = onRequestPermission,
+                            colors = ButtonDefaults.buttonColors(containerColor = ShizukuViolet),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(34.dp).testTag("shizuku_authorize_button")
+                        ) {
+                            Text("Autorizar", fontSize = 12.sp, color = Color.White)
+                        }
                     }
-                } else if (shizukuInfo.status == ShizukuStatus.AUTHORIZED) {
-                    Text(
-                        text = "v${shizukuInfo.version}",
-                        fontSize = 11.sp,
-                        color = EmeraldSuccess,
-                        fontWeight = FontWeight.Bold
-                    )
+                    ShizukuStatus.SERVICE_STOPPED -> {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (onOpenShizuku != null) {
+                                Button(
+                                    onClick = onOpenShizuku,
+                                    colors = ButtonDefaults.buttonColors(containerColor = ShizukuViolet),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(34.dp).testTag("shizuku_open_app_button")
+                                ) {
+                                    Text("Abrir App", fontSize = 12.sp, color = Color.White)
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = onRefresh,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(34.dp).testTag("shizuku_retry_button")
+                            ) {
+                                Text("Reintentar", fontSize = 12.sp, color = TextPrimary)
+                            }
+                        }
+                    }
+                    ShizukuStatus.NOT_INSTALLED -> {
+                        OutlinedButton(
+                            onClick = onRefresh,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(34.dp).testTag("shizuku_refresh_button")
+                        ) {
+                            Text("Reintentar", fontSize = 12.sp, color = TextPrimary)
+                        }
+                    }
+                    ShizukuStatus.AUTHORIZED -> {
+                        Text(
+                            text = "v${shizukuInfo.version}",
+                            fontSize = 11.sp,
+                            color = EmeraldSuccess,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

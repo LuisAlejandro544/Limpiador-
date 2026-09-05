@@ -58,23 +58,21 @@ En los ajustes de almacenamiento de Android (MIUI, One UI, ColorOS, Pixel OS, et
 ### 2. Navegación e Interfaces Especializadas
 - **`CleanScreen.kt` (Dashboard Principal)**: Resumen general del almacenamiento en tiempo real, estado de Shizuku y tarjeta de acceso prioritario a la herramienta de «Otros».
 - **`OtherStorageScreen.kt` (Interfaz 100% Independiente)**: Pantalla dedicada con barra de navegación superior, soporte nativo de retroceso (`BackHandler`), métricas de espacio liberable, chips de filtrado por nivel de riesgo y categoría, listado pormenorizado y botón de borrado masivo con confirmación.
-- **Transición Fluida**: Transición gestionada por `CleanViewModel.currentScreen` y `Crossfade` en `MainActivity.kt`, garantizando que el estado del escaneo se mantenga intacto al regresar al Dashboard.
+- **`DebugConsoleScreen.kt` (Herramientas de Depuración Embebidas)**: Panel con visor de Logcat en vivo y terminal de consola interactiva accesible desde el icono de diagnóstico en la barra superior.
+- **Transición Fluida**: Transición gestionada por `CleanViewModel.currentScreen` y `Crossfade` en `MainActivity.kt`, garantizando que el estado del escaneo se mantenga intacto al navegar entre pantallas.
 
-### 2. Capa de Integración Shizuku (`ShizukuHelper.kt`)
-- Utiliza la API oficial de Shizuku para comunicarse con el proceso privilegiado (UID 2000 / UID 0).
-- Obtiene la interfaz `IPackageManager` del sistema mediante `ShizukuBinderWrapper(SystemServiceHelper.getSystemService("package"))`.
-- Permite invocar:
-  - `grantRuntimePermission(...)`: Otorga permisos de almacenamiento a la propia app sin interacción manual.
-  - `pm trim-caches 999999999999999`: Solicita al sistema operativo recortar el almacenamiento de caché de todas las aplicaciones instaladas.
-  - `newProcess(...)`: Ejecuta comandos shell como usuario `shell`/`adb`.
+### 3. Herramientas de Depuración Embebidas para Móvil (Sin PC)
+- **LeakCanary 2.14**: Integrado en la configuración `debugImplementation`. Al instalar el APK Debug en el móvil, crea automáticamente la aplicación independiente **"Leaks"** en el cajón de aplicaciones para inspeccionar fugas de memoria y retenciones de Compose sin necesidad de un ordenador.
+- **Visor de Logcat en Vivo**: Streaming de logs del sistema operativo con filtros por texto y niveles (VERBOSE, DEBUG, INFO, WARN, ERROR) con colores distintivos y capacidad de vaciado de buffer (`logcat -c`).
+- **Terminal Shell Shizuku**: Ejecución de comandos del sistema directos (`pm list packages`, `df -h`, `id`, `ls -la`) con accesos rápidos preconfigurados y salida formateada en fuente monoespaciada tipo consola.
 
-### 3. Pipeline de Automatización y Compilación en la Nube (`build-debug-apk.yml`)
-- Workflow de GitHub Actions ubicado en `.github/workflows/build-debug-apk.yml`.
-- Configurado intencionadamente **sin caché** (`cache: ''`, `--no-build-cache`, `--no-daemon`) para asegurar compilaciones limpias desde cero.
-- Auto-genera el keystore de depuración estándar de Android en el entorno runner (`keytool -genkey ... ~/.android/debug.keystore`).
-- Genera el APK Debug como artefacto descargable directamente desde el móvil a través del navegador o la app de GitHub.
+### 4. Pipeline de Automatización y Scripts CI/CD (`.github/`)
+- **`setup_debug_keystore.sh`**: Script en `.github/scripts/` que borra cualquier keystore previa y obliga a `keytool` a generar una firma `debug.keystore` limpia con validez de 10,000 días tanto en la raíz como en `~/.android/debug.keystore`.
+- **`setup_debug_tools.sh`**: Script en `.github/scripts/` que comprueba e inyecta la presencia obligatoria de LeakCanary y valida los componentes de depuración en el runner de GitHub.
+- **`build-debug-apk.yml`**: Workflow de GitHub Actions que corre manualmente vía `workflow_dispatch`, orquestado por los scripts `.sh` sin usar caché.
+- **`override-commit-message.yml`**: Workflow que sincroniza el mensaje de cada commit leyendo el contenido en español de `commit_message.txt`.
 
-### 3. Hilos y Reactividad (Concurrencia)
+### 5. Hilos y Reactividad (Concurrencia)
 - **Regla de Oro**: Ninguna operación de lectura de disco, cálculo de tamaño o ejecución de scripts debe correr en el hilo principal (`Main Thread`).
 - Todo el escaneo se ejecuta en `Dispatchers.IO` dentro de corrutinas gestionadas por `viewModelScope`.
 - Se usa `Kotlin Flow` para emitir el progreso de forma reactiva, permitiendo que la UI muestre en tiempo real el directorio que se está escaneando sin tartamudeos ni congelamientos.
